@@ -10,6 +10,15 @@ This file is **co-evolved with the user**. When the LLM notices a recurring patt
 - Raw sources: `raw/`
 - Asset/image storage: `raw/assets/`
 
+## Raw source queue (the `processed` flag)
+
+Raw sources are tracked so the ingest workflow knows what's left to compile. The marker depends on the file kind:
+
+- **Markdown raw files** (`raw/*.md`) carry a `processed:` flag in their frontmatter. `processed: false` — or no `processed` key at all — means the source is pending ingest. `processed: true` means it has been compiled into the wiki. New markdown dropped into `raw/` should start at `processed: false`; the ingest workflow flips it to `true` as its final step. This flag is the only modification the LLM ever makes to a raw markdown file — the content stays immutable.
+- **PDFs and other non-markdown sources** can't hold the flag reliably, so they're considered processed once a page under `wiki/sources/` references them via its `raw:` frontmatter field. Unreferenced → pending.
+
+`scripts/wiki_ingest_queue.py` applies both rules and lists what's pending. The `/wiki:ingest` command runs it when no specific source is named.
+
 ## Page types
 
 This wiki uses these page types, each with a dedicated subdirectory:

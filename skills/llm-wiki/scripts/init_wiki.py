@@ -39,6 +39,12 @@ SUBDIRS = ["sources", "entities", "concepts", "synthesis", "graph"]
 # template_anchor, blurb).
 SCHEMA_SECTION_MARKERS = [
     {
+        "marker": "## Raw source queue",
+        "version": "0.4.0",
+        "anchor": "## Raw source queue (the `processed` flag)",
+        "label": "Raw source queue / `processed` flag (Wiki location section)",
+    },
+    {
         "marker": "## Optional graph metadata",
         "version": "0.3.0",
         "anchor": "## Optional graph metadata",

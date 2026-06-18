@@ -6,7 +6,7 @@ This document explains the three-layer / three-operation architecture in detail.
 
 ### Raw sources
 
-Raw sources are the user's curated input material. They live in `raw/` (or wherever the project's `SCHEMA.md` declares). They are **immutable** — the LLM reads from them but never modifies them. This immutability is load-bearing: it means the wiki can always be re-derived from the raw sources if it gets corrupted, and it gives the user a stable ground truth they can audit independently.
+Raw sources are the user's curated input material. They live in `raw/` (or wherever the project's `SCHEMA.md` declares). Their **content is immutable** — the LLM reads from them but never rewrites or reformats them. This immutability is load-bearing: it means the wiki can always be re-derived from the raw sources if it gets corrupted, and it gives the user a stable ground truth they can audit independently. The one exception is bookkeeping metadata, not content: a raw markdown file carries a `processed:` frontmatter flag that the ingest workflow flips to `true` once the source is compiled (see the ingest queue in `ingest-workflow.md`). The flag is regenerable from the wiki — a source is "processed" iff a `wiki/sources/` page cites it — so it doesn't compromise the re-derivation guarantee.
 
 What goes in `raw/`: PDFs, web articles converted to markdown (the Obsidian Web Clipper is one popular path), transcripts, code repos, dataset descriptions, screenshots, hand-typed notes the user wants the wiki to incorporate. What does *not* go in `raw/`: anything the LLM generated — that all belongs in the wiki layer.
 

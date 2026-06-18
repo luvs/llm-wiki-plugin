@@ -6,9 +6,33 @@ When a new source arrives, this is the procedure. The order matters — each ste
 
 Before anything else, read `wiki/SCHEMA.md`. The user may have customized the page-type structure, the tag taxonomy, the naming conventions, or the ingest workflow itself. Schema overrides everything documented here.
 
+## Step 0.5: Discover the ingest queue (when no specific source was named)
+
+If the user pointed at a specific source ("ingest this paper", a path, a URL), skip this step and go to Step 1. If they asked to ingest *something* without naming it ("what's left to ingest?", `/wiki:ingest` with no argument, a batch pass), first find what's pending.
+
+A raw source is **pending** until it has been compiled into the wiki. The marker differs by file kind:
+
+- **Markdown raw files** (`.md`) carry a `processed:` flag in their frontmatter. `processed: true` means ingested. `processed: false` — or a markdown file with **no `processed` key at all** — is pending. A missing flag counts as unprocessed by design, so a freshly-dropped file is never silently skipped.
+- **PDFs and other non-markdown sources** (`.pdf`, `.txt` transcripts, `.html`, images) can't carry the flag reliably. They count as pending until some page under `wiki/sources/` references them via its `raw:` frontmatter field. An unreferenced PDF is pending; once a source-summary page points its `raw:` at the PDF, it's processed.
+
+Don't reconstruct this by hand-reading every raw file — run the bundled script, which applies both rules and never loads binary contents:
+
+```bash
+python scripts/wiki_ingest_queue.py . --json          # or --wiki-dir/--raw-dir for non-default layouts
+```
+
+The JSON has a `pending` array (each item has `path`, `kind`, `reason`, and sometimes `already_referenced`) and a `processed` array. Then:
+
+1. If `pending` is empty, tell the user there's nothing to ingest and stop.
+2. Present the pending list as a **numbered, interactive choice** and ask which to process — the user may pick one, several, or all. Surface each item's `reason` so the choice is informed.
+3. For any item flagged `already_referenced: true` (a markdown file with no flag that a source page already cites), it was almost certainly ingested before the flag convention existed. Offer to just set `processed: true` on it rather than re-ingesting and creating a duplicate source page.
+4. Process each chosen source through Steps 1–10 below, one at a time. After each, the file leaves the queue (Step 9b), so a re-run of the script reflects progress.
+
 ## Step 1: Place the raw source
 
 If the source isn't already in `raw/`, place it there. Use a slugified filename: lowercase, hyphens for spaces, no special characters, with the original extension. For web articles, save as `.md` (Obsidian Web Clipper output is ideal). For PDFs, keep the `.pdf`. For transcripts, save as `.md` or `.txt`.
+
+When the raw source is **markdown**, add a `processed: false` line to its frontmatter (create the frontmatter block if the clipping has none). This is what puts the file on the ingest queue and keeps it discoverable by `wiki_ingest_queue.py`; Step 9b flips it to `true` once the ingest completes. PDFs and other non-markdown sources can't carry the flag — they get tracked instead by the `raw:` pointer on their source-summary page (Step 5), so nothing extra is needed when placing them.
 
 The slug you pick here will become the slug of the source-summary page in `wiki/sources/`, so make it descriptive and stable.
 
@@ -108,6 +132,15 @@ Skip this entire step if the ingest added no `graph:` metadata and created no ne
 
 One line in `wiki/log.md`, with the prefix `## [YYYY-MM-DD] ingest | <source-title>`. Optionally add a sub-line listing the pages touched. If the graph layer was refreshed, add a second sub-line: `   graph: +N nodes, +M typed edges`. The log is parsed by simple unix tools (`grep "^## \[" log.md | tail -10`), so the prefix matters.
 
+## Step 9b: Mark the source processed
+
+Take the source off the ingest queue so it isn't offered again next time:
+
+- **Markdown raw file:** set `processed: true` in its frontmatter with a surgical `str_replace` (add the key if it was missing). This is the *only* edit the ingest workflow ever makes to a raw source — raw sources are otherwise immutable. Touch the flag, nothing else; never edit the source's content.
+- **PDF / other non-markdown source:** there's nothing to flip — the `raw:` pointer on the source-summary page you wrote in Step 5 is the marker. Just double-check that pointer actually resolves to the raw file (matching filename), since that's the only signal `wiki_ingest_queue.py` has that the PDF is done.
+
+If you skip this step, the source resurfaces as pending on the next discovery pass and risks being ingested twice.
+
 ## Step 10: Close the loop with the user
 
 Tell the user what you did, briefly: "Ingested. Created the source page and a new entity page for X; updated the concept pages for Y and Z. Flagged a contradiction with [[paper-A]] regarding the claim about W."
@@ -127,3 +160,7 @@ If the source revealed something worth following up on (an obvious gap, a questi
 **Treating prior wiki pages as ground truth instead of the raw sources.** When updating an existing claim, re-read the raw source for that claim before merging the new one. Don't compound on the wiki's own paraphrase.
 
 **Letting the page split decision drift to a future lint pass.** If a page crossed the size cap during this ingest, split it during this ingest.
+
+**Forgetting to mark the source processed (Step 9b).** A markdown source left at `processed: false`, or a PDF whose source page doesn't point its `raw:` at the file, will resurface in the queue and get ingested a second time. The flip is the last step of every ingest.
+
+**Editing raw source content.** The `processed` flag is the sole permitted modification to a raw markdown file. Never "fix up" or reformat the raw source — it's the immutable record the wiki cites back to.

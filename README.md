@@ -84,7 +84,9 @@ Drop your first source into `raw/` (a PDF, a markdown clipping from the Obsidian
 /wiki:ingest raw/your-source.pdf
 ```
 
-Claude reads the source (chunk-reading if it's large), discusses the takeaways with you, writes a summary page, identifies which existing entity and concept pages it touches, surgically updates them with `str_replace`, creates new pages for new entities and concepts (each with at least one inbound link), updates the index, and appends to the log.
+Or run `/wiki:ingest` with no argument: Claude scans `raw/` for sources that haven't been compiled yet — markdown files flagged `processed: false` (or with no `processed:` flag), and PDFs/other sources that no `wiki/sources/` page references yet — and asks which one to process.
+
+Claude reads the source (chunk-reading if it's large), discusses the takeaways with you, writes a summary page, identifies which existing entity and concept pages it touches, surgically updates them with `str_replace`, creates new pages for new entities and concepts (each with at least one inbound link), updates the index, appends to the log, and marks the source processed.
 
 Once you have a few sources in:
 
@@ -107,7 +109,7 @@ This catches orphan pages, broken wikilinks, oversized pages, missing frontmatte
 | Command | What it does |
 |---------|--------------|
 | `/wiki:init` | Bootstrap a new wiki structure in the current project (now includes `wiki/graph/`). |
-| `/wiki:ingest <source>` | Process a new source into the wiki; refreshes the graph layer when present. |
+| `/wiki:ingest [source]` | Process a new source into the wiki; refreshes the graph layer when present. With no argument, lists unprocessed raw sources and asks which to process. |
 | `/wiki:query <question>` | Answer a question from the wiki with citations; consults `graph.sqlite` for relational questions when available. |
 | `/wiki:lint` | Structural and semantic health check; also runs graph lint when `wiki/graph/ontology.yaml` exists. |
 | `/wiki:stats` | Show wiki size, link density, and which scaling threshold the wiki is at. |
